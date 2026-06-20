@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suivi Dépenses Stage OPCO</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: #F0F4F8; color: #1a2332; min-height: 100vh; }
+
+  header { background: linear-gradient(135deg, #1F3864 0%, #2E75B6 100%); color: white; padding: 18px 20px 14px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(0,0,0,0.18); }
+  header h1 { font-size: 16px; font-weight: 700; }
+  header p { font-size: 11px; opacity: 0.75; margin-top: 2px; }
+
+  .budget-bar { background: white; margin: 14px 14px 0; border-radius: 14px; padding: 14px 18px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); }
+  .budget-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .budget-top span { font-size: 12px; color: #666; font-weight: 500; }
+  .budget-top strong { font-size: 18px; color: #1F3864; font-weight: 700; }
+  .bar-bg { background: #E8EEF5; border-radius: 99px; height: 8px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #2E75B6, #4BA3E3); transition: width 0.5s; }
+  .bar-fill.danger { background: linear-gradient(90deg, #e05c2e, #f4902a); }
+  .budget-labels { display: flex; justify-content: space-between; margin-top: 5px; }
+  .budget-labels span { font-size: 10px; color: #999; }
+
+  .section-title { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.8px; padding: 16px 18px 8px; }
+
+  .form-card { background: white; margin: 0 14px 14px; border-radius: 14px; padding: 18px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); }
+  .form-row { margin-bottom: 14px; }
+  .form-row label { display: block; font-size: 11px; font-weight: 600; color: #555; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-row input, .form-row select { width: 100%; padding: 11px 14px; border: 1.5px solid #E2E8F0; border-radius: 10px; font-family: 'Inter', sans-serif; font-size: 14px; color: #1a2332; background: #FAFBFC; outline: none; transition: border-color 0.2s; }
+  .form-row input:focus, .form-row select:focus { border-color: #2E75B6; background: white; }
+  .form-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .photo-zone { border: 2px dashed #CBD5E0; border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; background: #F7FAFC; transition: all 0.2s; }
+  .photo-zone:hover { border-color: #2E75B6; background: #EBF4FF; }
+  .photo-zone .icon { font-size: 24px; display: block; margin-bottom: 4px; }
+  .photo-zone .lbl { font-size: 13px; font-weight: 600; color: #2E75B6; }
+  .photo-zone .sub { font-size: 11px; color: #999; margin-top: 3px; }
+
+  .photo-preview { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .thumb-wrap { position: relative; display: inline-block; }
+  .photo-thumb { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; border: 2px solid #E2E8F0; cursor: pointer; }
+  .thumb-remove { position: absolute; top: -6px; right: -6px; background: #e05c2e; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+
+  .btn-add { width: 100%; padding: 14px; background: linear-gradient(135deg, #1F3864, #2E75B6); color: white; border: none; border-radius: 12px; font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 4px; transition: opacity 0.2s; }
+  .btn-add:hover { opacity: 0.9; }
+
+  .depenses-list { padding: 0 14px; padding-bottom: 88px; }
+  .depense-card { background: white; border-radius: 14px; margin-bottom: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); overflow: hidden; }
+  .depense-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; cursor: pointer; }
+  .depense-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+  .cat-badge { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .depense-desc { font-size: 14px; font-weight: 600; color: #1a2332; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .depense-meta { font-size: 11px; color: #999; margin-top: 2px; }
+  .depense-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .depense-amount { font-size: 17px; font-weight: 700; color: #1F3864; }
+  .btn-edit-inline { background: #EBF4FF; border: none; border-radius: 8px; padding: 6px 10px; font-size: 14px; cursor: pointer; color: #2E75B6; flex-shrink: 0; }
+  .btn-edit-inline:hover { background: #D6E4F0; }
+  .depense-body { display: none; padding: 12px 16px 14px; border-top: 1px solid #F0F4F8; }
+  .depense-body.open { display: block; }
+  .edit-form { background: #F7FAFC; border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+  .edit-form .form-row { margin-bottom: 10px; }
+  .edit-form label { font-size: 10px; }
+  .edit-form input, .edit-form select { font-size: 13px; padding: 9px 12px; }
+  .edit-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .btn-save-edit { flex: 1; padding: 10px; background: #38A169; color: white; border: none; border-radius: 10px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .btn-cancel-edit { padding: 10px 16px; background: #E8EEF5; color: #555; border: none; border-radius: 10px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .depense-photos { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .depense-photos .thumb-wrap img { width: 70px; height: 70px; object-fit: cover; border-radius: 8px; border: 1.5px solid #E2E8F0; }
+  .add-photo-btn { width: 70px; height: 70px; border-radius: 8px; border: 2px dashed #CBD5E0; background: #F7FAFC; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; color: #2E75B6; font-size: 20px; flex-shrink: 0; }
+  .add-photo-btn span { font-size: 9px; font-weight: 600; margin-top: 2px; }
+  .card-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .btn-delete { flex: 1; background: none; border: 1.5px solid #FDA29B; color: #B42318; border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; }
+  .btn-delete:hover { background: #FEF3F2; }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: #aaa; }
+  .empty-state .icon { font-size: 40px; display: block; margin-bottom: 10px; }
+
+  .export-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 12px 14px; box-shadow: 0 -2px 12px rgba(0,0,0,0.09); display: flex; gap: 8px; z-index: 50; }
+  .btn-export { flex: 1; padding: 13px; border: none; border-radius: 12px; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .btn-export.save { background: #E8EEF5; color: #1F3864; }
+  .btn-export.opco { background: #F4B942; color: #1a2332; }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 999; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal-overlay img { max-width: 95vw; max-height: 90vh; border-radius: 10px; }
+  .modal-close { position: absolute; top: 16px; right: 16px; background: white; border: none; border-radius: 50%; width: 34px; height: 34px; font-size: 18px; cursor: pointer; }
+
+  .sheet-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 998; align-items: flex-end; justify-content: center; }
+  .sheet-modal.open { display: flex; }
+  .sheet-box { background: white; border-radius: 20px 20px 0 0; padding: 24px 20px 36px; width: 100%; max-width: 500px; }
+  .sheet-box h3 { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+  .sheet-box .sub { font-size: 12px; color: #888; margin-bottom: 18px; line-height: 1.5; }
+  .sheet-box .field-row { display: flex; flex-direction: column; margin-bottom: 12px; }
+  .sheet-box .field-row label { font-size: 11px; font-weight: 600; color: #555; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
+  .sheet-box .field-row input { padding: 10px 14px; border: 1.5px solid #E2E8F0; border-radius: 10px; font-family: 'Inter', sans-serif; font-size: 14px; outline: none; background: #FAFBFC; }
+  .sheet-box .field-row input:focus { border-color: #2E75B6; background: white; }
+  .btn-dl { width: 100%; padding: 14px; background: #F4B942; color: #1a2332; border: none; border-radius: 12px; font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 6px; }
+  .btn-cancel-sheet { width: 100%; padding: 11px; background: none; border: none; color: #999; font-family: 'Inter', sans-serif; font-size: 13px; cursor: pointer; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📋 Suivi Dépenses Stage</h1>
+  <p>Remboursement OPCO — plafond 1 600 €</p>
+</header>
+
+<div class="budget-bar">
+  <div class="budget-top"><span>Total saisi</span><strong id="totalAmt">0,00 €</strong></div>
+  <div class="bar-bg"><div class="bar-fill" id="barFill" style="width:0%"></div></div>
+  <div class="budget-labels"><span>0 €</span><span id="barPct">0% du plafond</span><span>1 600 €</span></div>
+</div>
+
+<div class="section-title">Ajouter une dépense</div>
+<div class="form-card">
+  <div class="form-row"><label>Description</label><input type="text" id="fDesc" placeholder="Ex : Loyer studio janvier…"></div>
+  <div class="form-2col">
+    <div class="form-row"><label>Date</label><input type="date" id="fDate"></div>
+    <div class="form-row"><label>Montant (€)</label><input type="number" id="fMontant" placeholder="0.00" min="0" step="0.01"></div>
+  </div>
+  <div class="form-row">
+    <label>Catégorie</label>
+    <select id="fCat">
+      <option value="">-- Choisir --</option>
+      <option value="🏠 Logement">🏠 Logement</option>
+      <option value="✈️ Transport aérien">✈️ Transport aérien</option>
+      <option value="🚌 Transport local">🚌 Transport local</option>
+      <option value="🍽️ Restauration">🍽️ Restauration</option>
+      <option value="📦 Matériel">📦 Matériel</option>
+      <option value="📄 Visa / Administratif">📄 Visa / Administratif</option>
+      <option value="📱 Communication">📱 Communication</option>
+      <option value="🛡️ Assurance">🛡️ Assurance</option>
+      <option value="💡 Autre">💡 Autre</option>
+    </select>
+  </div>
+  <div class="form-row">
+    <label>Photo(s) de la facture</label>
+    <div class="photo-zone" onclick="document.getElementById('fPhotos').click()">
+      <input type="file" id="fPhotos" accept="image/*" multiple style="display:none" onchange="handlePhotos(this)">
+      <span class="icon">📷</span>
+      <span class="lbl">Prendre une photo ou choisir un fichier</span>
+      <span class="sub">JPG, PNG — plusieurs fichiers possibles</span>
+    </div>
+    <div class="photo-preview" id="photoPreview"></div>
+  </div>
+  <button class="btn-add" onclick="ajouterDepense()">＋ Ajouter cette dépense</button>
+</div>
+
+<div class="section-title">Mes dépenses</div>
+<div class="depenses-list" id="depensesList"></div>
+
+<div class="export-bar">
+  <button class="btn-export save" onclick="exportJSON()">💾 Sauvegarde</button>
+  <button class="btn-export opco" onclick="openExportModal()">📄 Exporter PDF OPCO</button>
+</div>
+
+<div class="modal-overlay" id="imgModal" onclick="closeModal()">
+  <button class="modal-close" onclick="closeModal()">✕</button>
+  <img id="modalImg" src="" alt="Facture">
+</div>
+
+<div class="sheet-modal" id="exportModal">
+  <div class="sheet-box">
+    <h3>📄 Export PDF OPCO</h3>
+    <p class="sub">Renseigne tes infos — le PDF généré contiendra le tableau récap + toutes tes photos de factures.</p>
+    <div class="field-row"><label>Nom</label><input type="text" id="eNom" placeholder="DUPONT"></div>
+    <div class="field-row"><label>Prénom</label><input type="text" id="ePrenom" placeholder="Jean"></div>
+    <div class="field-row"><label>Promotion</label><input type="text" id="ePromo" placeholder="Ex : Promo 2025"></div>
+    <div class="field-row"><label>Lieu de stage</label><input type="text" id="eLieu" placeholder="Ex : Londres, Royaume-Uni"></div>
+    <div class="field-row"><label>Dates de stage</label><input type="text" id="eDates" placeholder="Ex : 01/04/2025 – 30/06/2025"></div>
+    <button class="btn-dl" onclick="exportPDF()">📄 Générer et imprimer le PDF</button>
+    <button class="btn-cancel-sheet" onclick="closeExportModal()">Annuler</button>
+  </div>
+</div>
+
+<input type="file" id="editPhotoInput" accept="image/*" multiple style="display:none">
+
+<!-- Fenêtre PDF cachée -->
+<iframe id="pdfFrame" style="display:none"></iframe>
+
+<script>
+  let depenses = JSON.parse(localStorage.getItem('depenses_opco') || '[]');
+  let pendingPhotos = [];
+  let editingPhotoForId = null;
+  const LIMIT = 1600;
+
+  document.getElementById('fDate').valueAsDate = new Date();
+
+  document.getElementById('editPhotoInput').addEventListener('change', function() {
+    if (!editingPhotoForId) return;
+    const d = depenses.find(x => x.id === editingPhotoForId);
+    if (!d) return;
+    let loaded = 0;
+    const files = Array.from(this.files);
+    files.forEach(file => {
+      const r = new FileReader();
+      r.onload = e => { d.photos.push({name: file.name, dataUrl: e.target.result}); loaded++; if (loaded === files.length) save(); };
+      r.readAsDataURL(file);
+    });
+    this.value = '';
+  });
+
+  function save() { localStorage.setItem('depenses_opco', JSON.stringify(depenses)); render(); }
+  function fmt(n) { return Number(n).toLocaleString('fr-FR', {minimumFractionDigits:2,maximumFractionDigits:2}) + ' €'; }
+  function catColor(cat) {
+    const map = {'🏠':'#EBF4FF','✈️':'#E8F5E9','🚌':'#FFF8E1','🍽️':'#FBE9E7','📦':'#F3E5F5','📄':'#E0F7FA','📱':'#F0F4F8','🛡️':'#E8F5E9','💡':'#FFF3E0'};
+    return map[cat ? cat.split(' ')[0] : '💡'] || '#F0F4F8';
+  }
+  function opcoGroup(cat) {
+    if (!cat) return 'Autre';
+    if (cat.includes('Logement')) return 'Hébergement';
+    if (cat.includes('Transport') || cat.includes('avion')) return 'Transport';
+    if (cat.includes('Restauration')) return 'Repas';
+    return 'Autre';
+  }
+  function fmtDate(d) {
+    if (!d) return '';
+    try { return new Date(d+'T12:00:00').toLocaleDateString('fr-FR'); } catch { return d; }
+  }
+  const CATS = ['🏠 Logement','✈️ Transport aérien','🚌 Transport local','🍽️ Restauration','📦 Matériel','📄 Visa / Administratif','📱 Communication','🛡️ Assurance','💡 Autre'];
+
+  function handlePhotos(input) {
+    Array.from(input.files).forEach(file => {
+      const r = new FileReader();
+      r.onload = e => { pendingPhotos.push({name: file.name, dataUrl: e.target.result}); renderPreview(); };
+      r.readAsDataURL(file);
+    });
+    input.value = '';
+  }
+  function renderPreview() {
+    document.getElementById('photoPreview').innerHTML = pendingPhotos.map((p,i) => `
+      <div class="thumb-wrap">
+        <img class="photo-thumb" src="${p.dataUrl}" onclick="openModal('${p.dataUrl}')">
+        <button class="thumb-remove" onclick="pendingPhotos.splice(${i},1);renderPreview()">✕</button>
+      </div>`).join('');
+  }
+
+  function ajouterDepense() {
+    const desc = document.getElementById('fDesc').value.trim();
+    const date = document.getElementById('fDate').value;
+    const montant = parseFloat(document.getElementById('fMontant').value);
+    const cat = document.getElementById('fCat').value;
+    if (!desc) return alert('Ajoute une description.');
+    if (!date) return alert('Choisis une date.');
+    if (!montant || montant <= 0) return alert('Saisis un montant valide.');
+    if (!cat) return alert('Choisis une catégorie.');
+    depenses.unshift({id: Date.now(), desc, date, montant, cat, photos: [...pendingPhotos]});
+    pendingPhotos = []; renderPreview();
+    document.getElementById('fDesc').value = '';
+    document.getElementById('fMontant').value = '';
+    document.getElementById('fCat').value = '';
+    document.getElementById('fDate').valueAsDate = new Date();
+    save();
+  }
+
+  function toggleCard(id) {
+    const body = document.getElementById('body_'+id);
+    const isOpen = body.classList.contains('open');
+    document.querySelectorAll('.depense-body').forEach(b => b.classList.remove('open'));
+    if (!isOpen) body.classList.add('open');
+  }
+  function toggleEdit(id, e) {
+    e.stopPropagation();
+    const el = document.getElementById('edit_'+id);
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    document.getElementById('body_'+id).classList.add('open');
+  }
+  function saveEdit(id) {
+    const d = depenses.find(x => x.id === id);
+    if (!d) return;
+    const desc = document.getElementById('ed_desc_'+id).value.trim();
+    const date = document.getElementById('ed_date_'+id).value;
+    const montant = parseFloat(document.getElementById('ed_montant_'+id).value);
+    const cat = document.getElementById('ed_cat_'+id).value;
+    if (!desc || !date || !montant || montant <= 0 || !cat) return alert('Remplis tous les champs.');
+    d.desc = desc; d.date = date; d.montant = montant; d.cat = cat;
+    save();
+  }
+  function cancelEdit(id) { document.getElementById('edit_'+id).style.display = 'none'; }
+  function removePhoto(depId, pi) { const d = depenses.find(x => x.id === depId); if (d) { d.photos.splice(pi,1); save(); } }
+  function addPhotoToCard(id) { editingPhotoForId = id; document.getElementById('editPhotoInput').click(); }
+  function supprimerDepense(id) { if (!confirm('Supprimer ?')) return; depenses = depenses.filter(d => d.id !== id); save(); }
+  function openModal(src) { document.getElementById('modalImg').src = src; document.getElementById('imgModal').classList.add('open'); }
+  function closeModal() { document.getElementById('imgModal').classList.remove('open'); }
+  function openExportModal() { document.getElementById('exportModal').classList.add('open'); }
+  function closeExportModal() { document.getElementById('exportModal').classList.remove('open'); }
+
+  function exportJSON() {
+    const blob = new Blob([JSON.stringify(depenses, null, 2)], {type:'application/json'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'depenses_opco_sauvegarde.json'; a.click();
+  }
+
+  // ── Génération du PDF via une page HTML imprimable ─────────────────────────
+  function exportPDF() {
+    const nom    = document.getElementById('eNom').value.trim() || 'NOM';
+    const prenom = document.getElementById('ePrenom').value.trim() || 'Prénom';
+    const promo  = document.getElementById('ePromo').value.trim();
+    const lieu   = document.getElementById('eLieu').value.trim();
+    const dates  = document.getElementById('eDates').value.trim();
+
+    const hebergement = depenses.filter(d => opcoGroup(d.cat) === 'Hébergement');
+    const transport   = depenses.filter(d => opcoGroup(d.cat) === 'Transport');
+    const repas       = depenses.filter(d => opcoGroup(d.cat) === 'Repas');
+    const autre       = depenses.filter(d => !['Hébergement','Transport','Repas'].includes(opcoGroup(d.cat)));
+
+    const sumH = hebergement.reduce((s,d) => s+d.montant, 0);
+    const sumT = transport.reduce((s,d) => s+d.montant, 0);
+    const sumR = repas.reduce((s,d) => s+d.montant, 0);
+    const sumA = autre.reduce((s,d) => s+d.montant, 0);
+    const total = sumH + sumT + sumR + sumA;
+    const rembourse = Math.min(total, LIMIT);
+
+    function fmtEur(n) { return Number(n).toLocaleString('fr-FR', {minimumFractionDigits:2,maximumFractionDigits:2}) + ' €'; }
+
+    function groupRows(items) {
+      if (!items.length) return `<tr><td colspan="3" style="color:#aaa;font-style:italic;padding:8px 10px;">Aucune dépense</td></tr>`;
+      return items.map(d => `
+        <tr>
+          <td style="padding:7px 10px;">${fmtDate(d.date)}</td>
+          <td style="padding:7px 10px;">${d.desc}</td>
+          <td style="padding:7px 10px;text-align:right;font-weight:600;">${fmtEur(d.montant)}</td>
+        </tr>`).join('');
+    }
+
+    // Photos justificatifs
+    let photosHTML = '';
+    const withPhotos = depenses.filter(d => d.photos && d.photos.length > 0);
+    if (withPhotos.length > 0) {
+      photosHTML = `
+        <div style="page-break-before:always;"></div>
+        <div style="margin-bottom:24px;">
+          <h2 style="font-family:Arial,sans-serif;font-size:15px;color:#1F3864;border-bottom:2px solid #2E75B6;padding-bottom:6px;margin-bottom:16px;">
+            📎 Justificatifs — Photos des factures
+          </h2>
+        </div>`;
+      withPhotos.forEach((d, i) => {
+        photosHTML += `
+          <div style="margin-bottom:28px;page-break-inside:avoid;">
+            <div style="background:#EBF4FF;border-left:4px solid #2E75B6;padding:8px 12px;margin-bottom:10px;border-radius:0 6px 6px 0;">
+              <span style="font-family:Arial,sans-serif;font-size:12px;font-weight:700;color:#1F3864;">
+                Dépense n°${depenses.indexOf(d)+1} — ${d.desc}
+              </span>
+              <span style="font-family:Arial,sans-serif;font-size:11px;color:#555;margin-left:8px;">
+                ${fmtDate(d.date)} | ${fmtEur(d.montant)} | ${d.cat ? d.cat.replace(/^\S+ /,'') : ''}
+              </span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:10px;">
+              ${d.photos.map((p,pi) => `
+                <div style="border:1px solid #ddd;border-radius:6px;overflow:hidden;page-break-inside:avoid;">
+                  <img src="${p.dataUrl}" style="max-width:240px;max-height:320px;display:block;object-fit:contain;" alt="Facture ${pi+1}">
+                </div>`).join('')}
+            </div>
+          </div>`;
+      });
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Demande forfait mobilité OPCO — ${nom} ${prenom}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; color: #1a2332; background: white; padding: 28px 32px; font-size: 12px; }
+
+  /* ── Page 1 : Récap OPCO ── */
+  .page-title {
+    text-align: center;
+    font-size: 16px;
+    font-weight: bold;
+    color: white;
+    background: #1F3864;
+    padding: 12px 20px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Bloc identité */
+  .identity-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+  .identity-table td { padding: 7px 12px; border: 1px solid #C8D5E8; font-size: 12px; }
+  .identity-table td:first-child { font-weight: bold; color: #1F3864; background: #EBF4FF; width: 130px; }
+  .identity-table td:nth-child(3) { font-weight: bold; color: #1F3864; background: #EBF4FF; width: 130px; }
+
+  /* Groupes dépenses */
+  .group-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  .group-header td {
+    font-weight: bold;
+    font-size: 12px;
+    padding: 8px 10px;
+    color: white;
+    letter-spacing: 0.3px;
+  }
+  .group-table td { border: 1px solid #ddd; }
+  .group-table tr:nth-child(even) td { background: #FAFBFC; }
+  .group-table tr:hover td { background: #F0F4F8; }
+  .col-date { width: 100px; }
+  .col-desc { }
+  .col-amt { width: 110px; text-align: right; }
+
+  /* Sous-total */
+  .subtotal-row td {
+    font-weight: bold;
+    font-size: 12px;
+    padding: 7px 10px;
+    border-top: 2px solid rgba(0,0,0,0.15);
+  }
+
+  /* Bloc total final */
+  .total-block { margin-top: 8px; display: flex; justify-content: flex-end; }
+  .total-inner { width: 320px; border-collapse: collapse; }
+  .total-inner td { padding: 9px 14px; font-size: 13px; border: 1px solid #C8D5E8; }
+  .total-inner .lbl { font-weight: bold; color: #1F3864; background: #EBF4FF; }
+  .total-inner .val { font-weight: bold; text-align: right; }
+  .total-inner .grand td { background: #1F3864; color: white; font-size: 14px; }
+  .total-inner .remb td { background: #F4B942; color: #1a2332; font-size: 13px; }
+
+  /* Pied de page recap */
+  .footer-note {
+    margin-top: 20px;
+    padding: 10px 14px;
+    background: #F7FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 6px;
+    font-size: 10px;
+    color: #666;
+    line-height: 1.6;
+  }
+
+  @media print {
+    body { padding: 16px 20px; }
+    @page { margin: 1.2cm; size: A4; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-title">Demande forfait mobilité internationale OPCO</div>
+
+<!-- Identité -->
+<table class="identity-table">
+  <tr>
+    <td>NOM</td><td><strong>${nom}</strong></td>
+    <td>Lieu de stage</td><td>${lieu}</td>
+  </tr>
+  <tr>
+    <td>Prénom</td><td><strong>${prenom}</strong></td>
+    <td>Dates de stage</td><td>${dates}</td>
+  </tr>
+  <tr>
+    <td>Promo</td><td colspan="3">${promo}</td>
+  </tr>
+</table>
+
+<!-- Hébergement -->
+<table class="group-table">
+  <thead>
+    <tr class="group-header">
+      <td colspan="3" style="background:#E06666;">🏠 Hébergement</td>
+    </tr>
+    <tr style="background:#F9ECEC;">
+      <td class="col-date" style="padding:6px 10px;font-weight:600;color:#555;">Date</td>
+      <td class="col-desc" style="padding:6px 10px;font-weight:600;color:#555;">Description</td>
+      <td class="col-amt" style="padding:6px 10px;font-weight:600;color:#555;text-align:right;">Montant</td>
+    </tr>
+  </thead>
+  <tbody>${groupRows(hebergement)}</tbody>
+  <tfoot>
+    <tr class="subtotal-row" style="background:#F9ECEC;">
+      <td colspan="2" style="color:#C53030;border:1px solid #ddd;">Total Hébergement</td>
+      <td style="text-align:right;color:#C53030;border:1px solid #ddd;">${fmtEur(sumH)}</td>
+    </tr>
+  </tfoot>
+</table>
+
+<!-- Transport -->
+<table class="group-table">
+  <thead>
+    <tr class="group-header">
+      <td colspan="3" style="background:#D4A500;">✈️ Transport</td>
+    </tr>
+    <tr style="background:#FFFBEC;">
+      <td class="col-date" style="padding:6px 10px;font-weight:600;color:#555;">Date</td>
+      <td class="col-desc" style="padding:6px 10px;font-weight:600;color:#555;">Description</td>
+      <td class="col-amt" style="padding:6px 10px;font-weight:600;color:#555;text-align:right;">Montant</td>
+    </tr>
+  </thead>
+  <tbody>${groupRows(transport)}</tbody>
+  <tfoot>
+    <tr class="subtotal-row" style="background:#FFFBEC;">
+      <td colspan="2" style="color:#92660A;border:1px solid #ddd;">Total Transport</td>
+      <td style="text-align:right;color:#92660A;border:1px solid #ddd;">${fmtEur(sumT)}</td>
+    </tr>
+  </tfoot>
+</table>
+
+<!-- Repas -->
+<table class="group-table">
+  <thead>
+    <tr class="group-header">
+      <td colspan="3" style="background:#2E75B6;">🍽️ Repas</td>
+    </tr>
+    <tr style="background:#EBF4FF;">
+      <td class="col-date" style="padding:6px 10px;font-weight:600;color:#555;">Date</td>
+      <td class="col-desc" style="padding:6px 10px;font-weight:600;color:#555;">Description</td>
+      <td class="col-amt" style="padding:6px 10px;font-weight:600;color:#555;text-align:right;">Montant</td>
+    </tr>
+  </thead>
+  <tbody>${groupRows(repas)}</tbody>
+  <tfoot>
+    <tr class="subtotal-row" style="background:#EBF4FF;">
+      <td colspan="2" style="color:#1F3864;border:1px solid #ddd;">Total Repas</td>
+      <td style="text-align:right;color:#1F3864;border:1px solid #ddd;">${fmtEur(sumR)}</td>
+    </tr>
+  </tfoot>
+</table>
+
+${autre.length > 0 ? `
+<!-- Autre -->
+<table class="group-table">
+  <thead>
+    <tr class="group-header">
+      <td colspan="3" style="background:#4A6741;">💡 Autre</td>
+    </tr>
+    <tr style="background:#EFF5EE;">
+      <td class="col-date" style="padding:6px 10px;font-weight:600;color:#555;">Date</td>
+      <td class="col-desc" style="padding:6px 10px;font-weight:600;color:#555;">Description</td>
+      <td class="col-amt" style="padding:6px 10px;font-weight:600;color:#555;text-align:right;">Montant</td>
+    </tr>
+  </thead>
+  <tbody>${groupRows(autre)}</tbody>
+  <tfoot>
+    <tr class="subtotal-row" style="background:#EFF5EE;">
+      <td colspan="2" style="color:#2D5A27;border:1px solid #ddd;">Total Autre</td>
+      <td style="text-align:right;color:#2D5A27;border:1px solid #ddd;">${fmtEur(sumA)}</td>
+    </tr>
+  </tfoot>
+</table>` : ''}
+
+<!-- Totaux -->
+<div class="total-block">
+  <table class="total-inner">
+    <tr>
+      <td class="lbl">Total des dépenses</td>
+      <td class="val">${fmtEur(total)}</td>
+    </tr>
+    <tr>
+      <td class="lbl">Plafond OPCO</td>
+      <td class="val">1 600,00 €</td>
+    </tr>
+    <tr class="remb">
+      <td style="font-weight:bold;">Montant à rembourser</td>
+      <td style="font-weight:bold;text-align:right;">${fmtEur(rembourse)}</td>
+    </tr>
+    <tr class="grand">
+      <td>TOTAL</td>
+      <td style="text-align:right;">${fmtEur(total)}</td>
+    </tr>
+  </table>
+</div>
+
+<div class="footer-note">
+  Généré le ${new Date().toLocaleDateString('fr-FR')} — ${depenses.length} dépense(s) enregistrée(s) —
+  Toutes les factures originales sont jointes en pages suivantes.
+</div>
+
+${photosHTML}
+
+<script>window.onload = function(){ window.print(); }<\/script>
+</body>
+</html>`;
+
+    const w = window.open('', '_blank');
+    w.document.write(html);
+    w.document.close();
+    closeExportModal();
+  }
+
+  function render() {
+    const total = depenses.reduce((s,d) => s+d.montant, 0);
+    document.getElementById('totalAmt').textContent = fmt(total);
+    const pct = Math.min(100, (total / LIMIT) * 100);
+    const fill = document.getElementById('barFill');
+    fill.style.width = pct + '%';
+    fill.className = 'bar-fill' + (pct >= 100 ? ' danger' : '');
+    document.getElementById('barPct').textContent = Math.round(pct) + '% du plafond';
+
+    const list = document.getElementById('depensesList');
+    if (!depenses.length) {
+      list.innerHTML = `<div class="empty-state"><span class="icon">🧾</span><p style="font-size:14px">Aucune dépense pour l'instant.</p></div>`;
+      return;
+    }
+    list.innerHTML = depenses.map(d => {
+      const bg = catColor(d.cat);
+      const emoji = d.cat ? d.cat.split(' ')[0] : '💡';
+      const dateStr = d.date ? new Date(d.date+'T12:00:00').toLocaleDateString('fr-FR') : '';
+      const catOpts = CATS.map(c => `<option value="${c}" ${c===d.cat?'selected':''}>${c}</option>`).join('');
+      const photosHtml = (d.photos && d.photos.length)
+        ? d.photos.map((p,i) => `<div class="thumb-wrap"><img class="photo-thumb" src="${p.dataUrl}" onclick="openModal('${p.dataUrl}')"><button class="thumb-remove" onclick="removePhoto(${d.id},${i})">✕</button></div>`).join('')
+        : '';
+      return `
+        <div class="depense-card">
+          <div class="depense-header" onclick="toggleCard(${d.id})">
+            <div class="depense-left">
+              <div class="cat-badge" style="background:${bg}">${emoji}</div>
+              <div style="min-width:0"><div class="depense-desc">${d.desc}</div><div class="depense-meta">${dateStr} · ${d.cat.replace(/^\S+ /,'')}</div></div>
+            </div>
+            <div class="depense-right">
+              <div class="depense-amount">${fmt(d.montant)}</div>
+              <button class="btn-edit-inline" onclick="toggleEdit(${d.id},event)">✏️</button>
+            </div>
+          </div>
+          <div class="depense-body" id="body_${d.id}">
+            <div class="edit-form" id="edit_${d.id}" style="display:none">
+              <div class="form-row"><label>Description</label><input type="text" id="ed_desc_${d.id}" value="${d.desc.replace(/"/g,'&quot;')}"></div>
+              <div class="form-2col">
+                <div class="form-row"><label>Date</label><input type="date" id="ed_date_${d.id}" value="${d.date}"></div>
+                <div class="form-row"><label>Montant (€)</label><input type="number" id="ed_montant_${d.id}" value="${d.montant}" min="0" step="0.01"></div>
+              </div>
+              <div class="form-row"><label>Catégorie</label><select id="ed_cat_${d.id}">${catOpts}</select></div>
+              <div class="edit-actions">
+                <button class="btn-cancel-edit" onclick="cancelEdit(${d.id})">Annuler</button>
+                <button class="btn-save-edit" onclick="saveEdit(${d.id})">✓ Enregistrer</button>
+              </div>
+            </div>
+            <div style="font-size:12px;color:#666;margin-bottom:6px;">Justificatifs :</div>
+            <div class="depense-photos">
+              ${photosHtml}
+              <div class="add-photo-btn" onclick="addPhotoToCard(${d.id})">📷<span>Ajouter</span></div>
+            </div>
+            <div class="card-actions"><button class="btn-delete" onclick="supprimerDepense(${d.id})">🗑 Supprimer</button></div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  render();
+</script>
+</body>
+</html>
