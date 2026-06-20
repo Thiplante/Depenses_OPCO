@@ -192,17 +192,28 @@
 
   document.getElementById('fDate').valueAsDate = new Date();
 
-  document.getElementById('editPhotoInput').addEventListener('change', function() {
+  document.getElementById('editPhotoInput').addEventListener('change', async function() {
     if (!editingPhotoForId) return;
     const d = depenses.find(x => x.id === editingPhotoForId);
     if (!d) return;
     let loaded = 0;
     const files = Array.from(this.files);
-    files.forEach(file => {
-      const r = new FileReader();
-      r.onload = e => { d.photos.push({name: file.name, dataUrl: e.target.result}); loaded++; if (loaded === files.length) save(); };
-      r.readAsDataURL(file);
-    });
+    for (const file of files) {
+      await new Promise(resolve => {
+        const r = new FileReader();
+        r.onload = async e => {
+          const entry = {name: file.name, dataUrl: e.target.result, pages: []};
+          if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+            try { entry.pages = await pdfToImages(e.target.result); } catch(err) {}
+          }
+          d.photos.push(entry);
+          loaded++;
+          resolve();
+        };
+        r.readAsDataURL(file);
+      });
+    }
+    save();
     this.value = '';
   });
 
@@ -225,15 +236,55 @@
   }
   const CATS = ['🏠 Logement','✈️ Transport aérien','🚌 Transport local','🍽️ Restauration','📦 Matériel','📄 Visa / Administratif','📱 Communication','🛡️ Assurance','💡 Autre'];
 
+  // PDF.js pour convertir les pages PDF en images
+  const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+  let pdfJsLoaded = false;
+  function loadPDFJS(cb) {
+    if (pdfJsLoaded) { cb(); return; }
+    const s = document.createElement('script');
+    s.src = PDFJS_CDN;
+    s.onload = () => {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      pdfJsLoaded = true; cb();
+    };
+    document.head.appendChild(s);
+  }
+
+  async function pdfToImages(dataUrl) {
+    return new Promise((resolve, reject) => {
+      loadPDFJS(async () => {
+        try {
+          const base64 = dataUrl.split(',')[1];
+          const binary = atob(base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const pdf = await pdfjsLib.getDocument({data: bytes}).promise;
+          const images = [];
+          for (let p = 1; p <= pdf.numPages; p++) {
+            const page = await pdf.getPage(p);
+            const viewport = page.getViewport({scale: 1.8});
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            await page.render({canvasContext: canvas.getContext('2d'), viewport}).promise;
+            images.push(canvas.toDataURL('image/jpeg', 0.85));
+          }
+          resolve(images);
+        } catch(e) { reject(e); }
+      });
+    });
+  }
+
   function isPDF(p) { return p.name && p.name.toLowerCase().endsWith('.pdf'); }
 
   function thumbHTML(p, i, removeFn) {
     if (isPDF(p)) {
-      const shortName = p.name.length > 10 ? p.name.substring(0,10)+'…' : p.name;
+      // Afficher la première page si déjà rendue, sinon icône PDF
+      const preview = p.pages && p.pages[0]
+        ? `<img class="photo-thumb" src="${p.pages[0]}" onclick="openModal('${p.pages[0]}')" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:2px solid #E2E8F0;">`
+        : `<div class="pdf-thumb"><span>📄</span><span>${p.name.length>10?p.name.substring(0,10)+'…':p.name}</span></div>`;
       return `<div class="thumb-wrap">
-        <a class="pdf-thumb" href="${p.dataUrl}" target="_blank">
-          <span>📄</span><span>${shortName}</span>
-        </a>
+        ${preview}
         <button class="thumb-remove" onclick="${removeFn}">✕</button>
       </div>`;
     }
@@ -246,11 +297,21 @@
   function handlePhotos(input) {
     Array.from(input.files).forEach(file => {
       const r = new FileReader();
-      r.onload = e => { pendingPhotos.push({name: file.name, dataUrl: e.target.result}); renderPreview(); };
+      r.onload = async e => {
+        const entry = {name: file.name, dataUrl: e.target.result, pages: []};
+        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+          try {
+            entry.pages = await pdfToImages(e.target.result);
+          } catch(err) { console.warn('PDF render error:', err); }
+        }
+        pendingPhotos.push(entry);
+        renderPreview();
+      };
       r.readAsDataURL(file);
     });
     input.value = '';
   }
+
   function renderPreview() {
     document.getElementById('photoPreview').innerHTML = pendingPhotos.map((p,i) =>
       thumbHTML(p, i, `pendingPhotos.splice(${i},1);renderPreview()`)
@@ -369,13 +430,18 @@
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:10px;">
               ${d.photos.map((p,pi) => {
+                if (isPDF(p) && p.pages && p.pages.length > 0) {
+                  // Afficher toutes les pages du PDF comme images
+                  return p.pages.map((pageImg, pageIdx) => `
+                    <div style="border:1px solid #ddd;border-radius:6px;overflow:hidden;page-break-inside:avoid;margin-bottom:6px;">
+                      ${p.pages.length > 1 ? `<div style="background:#F0F4F8;padding:4px 8px;font-size:10px;color:#666;">📄 ${p.name} — page ${pageIdx+1}/${p.pages.length}</div>` : `<div style="background:#F0F4F8;padding:4px 8px;font-size:10px;color:#666;">📄 ${p.name}</div>`}
+                      <img src="${pageImg}" style="max-width:100%;display:block;object-fit:contain;" alt="Page ${pageIdx+1}">
+                    </div>`).join('');
+                }
                 if (isPDF(p)) {
-                  return `<div style="border:1px solid #ddd;border-radius:6px;padding:12px 16px;background:#FEF3F2;display:flex;align-items:center;gap:10px;">
-                    <span style="font-size:28px;">📄</span>
-                    <div>
-                      <div style="font-weight:600;color:#B42318;font-size:12px;">${p.name}</div>
-                      <a href="${p.dataUrl}" target="_blank" style="font-size:11px;color:#2E75B6;">Ouvrir le PDF</a>
-                    </div>
+                  return `<div style="border:1px solid #ddd;border-radius:6px;padding:16px;background:#FEF3F2;text-align:center;">
+                    <span style="font-size:32px;">📄</span>
+                    <div style="font-size:11px;color:#666;margin-top:4px;">${p.name}</div>
                   </div>`;
                 }
                 return `<div style="border:1px solid #ddd;border-radius:6px;overflow:hidden;page-break-inside:avoid;">
